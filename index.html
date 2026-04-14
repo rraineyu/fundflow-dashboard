@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FundFlow Simulator — Nonprofit Financial Risk & Scenario Planning</title>
+  <meta name="description" content="Stress-test nonprofit finances before committing a grant. Simulate funding shocks, model recovery pathways, and surface where grants create the most impact. Powered by IRS Form 990 data." />
+  <meta name="theme-color" content="#080D1A" />
+
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ── Top Navigation ─────────────────────────────────────────────────────── -->
+<nav class="top-nav" role="navigation" aria-label="Main navigation">
+  <div class="nav-brand" id="nav-home-btn" role="button" tabindex="0" aria-label="FundFlow home">
+    <div class="nav-logo">FF</div>
+    <div>
+      <div class="nav-title">FundFlow</div>
+      <div class="nav-subtitle">Nonprofit Risk Simulator</div>
+    </div>
+  </div>
+  <div class="nav-badge">🏆 Aggie Hack 2026</div>
+</nav>
+
+<!-- ── SEARCH VIEW ─────────────────────────────────────────────────────────── -->
+<div id="view-search" class="view active" role="main">
+
+  <section class="search-hero" aria-labelledby="hero-heading">
+    <div class="hero-badge">
+      <span>📋</span> Powered by IRS Form 990 · ProPublica Nonprofit Explorer
+    </div>
+    <h1 class="hero-title" id="hero-heading">Stress-test a nonprofit<br/>before you grant.</h1>
+    <p class="hero-subtitle">
+      Simulate funding shocks, model recovery pathways, and surface where a targeted
+      grant creates the most outsized impact — all from 7 years of real 990 data.
+    </p>
+
+    <div class="search-box" role="search">
+      <div class="search-input-wrapper">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input
+          type="search"
+          id="search-input"
+          placeholder="Search by organization name or EIN…"
+          autocomplete="off"
+          aria-label="Search nonprofit organizations"
+          spellcheck="false"
+        />
+      </div>
+      <button id="search-btn" type="button" aria-label="Search organizations">
+        Search
+      </button>
+    </div>
+
+    <div class="example-searches" aria-label="Example searches">
+      <span>Try:</span>
+      <button class="example-search" data-query="American Red Cross" type="button">American Red Cross</button>
+      <button class="example-search" data-query="Habitat for Humanity" type="button">Habitat for Humanity</button>
+      <button class="example-search" data-query="Boys and Girls Club" type="button">Boys &amp; Girls Club</button>
+      <button class="example-search" data-query="food bank" type="button">Food Bank</button>
+    </div>
+  </section>
+
+  <!-- Feature preview cards -->
+  <div class="app-wrapper">
+    <div id="search-results" class="search-results-section" aria-live="polite" aria-label="Search results">
+      <!-- Feature cards shown before search -->
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3 class="feature-title">7-Year Financial Panel</h3>
+          <p class="feature-desc">Visualize revenue, expense, and net asset trends from real IRS 990 filings across up to 7 fiscal years.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3 class="feature-title">Resilience Scorecard</h3>
+          <p class="feature-desc">Five evidence-based metrics — cash runway, operating margin, revenue concentration, and more — scored in real-time.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3 class="feature-title">Funding Shock Simulator</h3>
+          <p class="feature-desc">Model revenue loss, grant elimination, or expense surges. See projected survival runway and recovery curves instantly.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3 class="feature-title">Grant Impact Modeler</h3>
+          <p class="feature-desc">Enter a grant amount and type to see the projected 3-year impact on net assets, resilience score, and cash runway.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LOADING VIEW ─────────────────────────────────────────────────────────── -->
+<div id="view-loading" class="view" role="status" aria-live="polite" aria-label="Loading">
+  <div class="spinner"></div>
+  <p id="loading-org-name">Loading organization data…</p>
+</div>
+
+<!-- ── DASHBOARD VIEW ──────────────────────────────────────────────────────── -->
+<div id="view-dashboard" class="view" role="main" aria-label="Organization dashboard">
+
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="dash-breadcrumb">
+      <button id="btn-back-to-search" type="button" aria-label="Back to search">
+        ← Back
+      </button>
+    </div>
+    <div class="dash-org-info">
+      <div>
+        <h1 class="dash-org-name" id="dash-org-name">Organization Name</h1>
+        <div class="dash-org-meta">
+          <span class="meta-pill" id="dash-org-ein">EIN —</span>
+          <span class="meta-pill" id="dash-org-location"></span>
+          <span class="meta-pill" id="dash-org-ntee"></span>
+        </div>
+      </div>
+      <div class="dash-data-info" aria-live="polite">
+        <div id="dash-data-year">—</div>
+        <div id="dash-total-filings">—</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Key Financial Stats -->
+  <div class="key-stats-row" role="region" aria-label="Key financial statistics">
+    <div class="key-stat">
+      <div class="stat-label">Total Revenue</div>
+      <div class="stat-value" id="stat-revenue">—</div>
+    </div>
+    <div class="key-stat">
+      <div class="stat-label">Total Expenses</div>
+      <div class="stat-value" id="stat-expenses">—</div>
+    </div>
+    <div class="key-stat">
+      <div class="stat-label">Net Assets</div>
+      <div class="stat-value" id="stat-net-assets">—</div>
+    </div>
+    <div class="key-stat">
+      <div class="stat-label">Annual Surplus / Deficit</div>
+      <div class="stat-value" id="stat-surplus">—</div>
+    </div>
+  </div>
+
+  <!-- Resilience Score + Metric Cards -->
+  <section class="resilience-section" aria-labelledby="resilience-heading">
+    <div class="section-title" id="resilience-heading">Financial Resilience Assessment</div>
+    <div class="score-and-metrics">
+
+      <!-- Circular Score -->
+      <div class="score-panel" aria-label="Resilience score">
+        <div class="score-ring-wrapper">
+          <div id="score-ring">
+            <svg class="score-ring-svg" viewBox="0 0 140 140" aria-hidden="true">
+              <circle class="score-ring-bg" cx="70" cy="70" r="54" />
+              <circle class="score-ring-fill" cx="70" cy="70" r="54" />
+            </svg>
+            <div class="score-inner">
+              <div id="resilience-score-value" aria-live="polite">—</div>
+              <div class="score-out-of">/ 100</div>
+            </div>
+          </div>
+        </div>
+        <div id="resilience-score-label" aria-live="polite">—</div>
+        <p id="resilience-score-desc">—</p>
+      </div>
+
+      <!-- Metric Cards -->
+      <div id="metric-cards" role="list" aria-label="Financial resilience metrics">
+        <!-- Populated by app.js -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabs: Overview / Shock Simulator / Grant Impact -->
+  <section class="tabs-section">
+    <nav class="tab-nav" role="tablist" aria-label="Analysis tabs">
+      <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" id="tab-btn-overview">
+        📈 Financial Overview
+      </button>
+      <button class="tab-btn" data-tab="shock" role="tab" aria-selected="false" id="tab-btn-shock">
+        ⚡ Funding Shock Simulator
+      </button>
+      <button class="tab-btn" data-tab="grant" role="tab" aria-selected="false" id="tab-btn-grant">
+        🎯 Grant Impact Modeler
+      </button>
+    </nav>
+
+    <div class="tab-panels">
+
+      <!-- ── Tab: Overview ────────────────────────────────────────────────── -->
+      <div id="tab-overview" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-overview">
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">7-Year Financial Trends</div>
+            <div class="chart-container">
+              <canvas id="chart-trend" aria-label="7-year financial trend chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Revenue Mix (Latest Year)</div>
+            <div class="chart-container">
+              <canvas id="chart-donut" aria-label="Revenue breakdown donut chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab: Shock Simulator ─────────────────────────────────────────── -->
+      <div id="tab-shock" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-shock">
+        <div class="simulator-layout">
+
+          <!-- Controls -->
+          <div class="sim-controls" aria-label="Shock simulation controls">
+            <div class="sim-controls-title">⚡ Configure Funding Shock</div>
+
+            <div class="form-group">
+              <label class="form-label" for="shock-type">Shock Type</label>
+              <select id="shock-type" class="form-select" aria-describedby="shock-type-desc">
+                <!-- Populated by app.js -->
+              </select>
+              <p class="form-type-desc" id="shock-type-desc"></p>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="shock-magnitude">Shock Magnitude</label>
+              <div class="slider-row">
+                <span style="font-size:0.78rem;color:var(--text-muted)">10%</span>
+                <span class="slider-val" id="shock-magnitude-val">30%</span>
+                <span style="font-size:0.78rem;color:var(--text-muted)">80%</span>
+              </div>
+              <input
+                type="range"
+                id="shock-magnitude"
+                min="10" max="80" value="30" step="5"
+                aria-label="Shock magnitude percentage"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="shock-duration">Duration</label>
+              <div class="slider-row">
+                <span style="font-size:0.78rem;color:var(--text-muted)">1 yr</span>
+                <span class="slider-val" id="shock-duration-val">1 year</span>
+                <span style="font-size:0.78rem;color:var(--text-muted)">3 yrs</span>
+              </div>
+              <input
+                type="range"
+                id="shock-duration"
+                min="1" max="3" value="1" step="1"
+                aria-label="Shock duration in years"
+              />
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div class="sim-results" aria-live="polite" aria-label="Shock simulation results">
+            <div class="results-kpis">
+              <div class="kpi-card">
+                <div class="kpi-label">Resilience Score</div>
+                <div class="kpi-value">
+                  <div class="score-change-row">
+                    <span id="shock-score-before" style="color:var(--text-muted);font-size:1rem">—</span>
+                    <span class="score-arrow">→</span>
+                    <span id="shock-score-after">—</span>
+                  </div>
+                </div>
+                <div style="text-align:center;margin-top:6px">
+                  <span id="shock-score-delta" class="delta-negative" style="font-size:1rem;font-weight:700">—</span>
+                </div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Survival Runway</div>
+                <div class="kpi-value" id="shock-runway">—</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Annual Cash Flow</div>
+                <div class="kpi-value" id="shock-deficit">—</div>
+              </div>
+              <div class="kpi-card" style="background:var(--gold-dim);border-color:var(--border-gold)">
+                <div class="kpi-label" style="color:var(--gold)">Grant Opportunity</div>
+                <div class="kpi-value" style="font-size:0.9rem;color:var(--gold)">Switch to Grant tab to model impact →</div>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-title">Projected Financial Trajectory</div>
+              <div class="chart-container" style="height:320px">
+                <canvas id="chart-shock" aria-label="Shock simulation recovery chart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab: Grant Impact ─────────────────────────────────────────────── -->
+      <div id="tab-grant" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-grant">
+        <div class="simulator-layout">
+
+          <!-- Controls -->
+          <div class="sim-controls" aria-label="Grant impact controls">
+            <div class="sim-controls-title">🎯 Configure Grant</div>
+
+            <div class="form-group">
+              <label class="form-label" for="grant-amount">Grant Amount</label>
+              <div class="input-prefix">
+                <input
+                  type="text"
+                  id="grant-amount"
+                  class="form-input"
+                  value="250,000"
+                  placeholder="250,000"
+                  inputmode="numeric"
+                  aria-label="Grant amount in dollars"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="grant-type">Grant Type</label>
+              <select id="grant-type" class="form-select" aria-label="Grant type">
+                <!-- Populated by app.js -->
+              </select>
+            </div>
+
+            <div style="background:var(--teal-dim);border:1px solid var(--border-teal);border-radius:var(--radius-sm);padding:14px;margin-top:8px">
+              <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--teal);margin-bottom:6px">How it works</div>
+              <p style="font-size:0.78rem;color:var(--text-secondary);line-height:1.55">
+                Our model simulates the grant's effect on revenue, asset base, and operating flexibility,
+                then projects key resilience metrics over a 3-year horizon.
+              </p>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div class="sim-results" aria-live="polite" aria-label="Grant impact results">
+            <div class="results-kpis">
+              <div class="kpi-card">
+                <div class="kpi-label">Resilience Score</div>
+                <div class="score-change-row" style="justify-content:center;margin-top:8px">
+                  <span id="grant-score-before" style="color:var(--text-muted);font-size:1rem">—</span>
+                  <span class="score-arrow">→</span>
+                  <span id="grant-score-after" style="font-size:1.4rem;font-weight:700">—</span>
+                </div>
+                <div style="text-align:center;margin-top:6px">
+                  <span id="grant-score-delta" class="delta-positive" style="font-size:1rem;font-weight:700">—</span>
+                </div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Cash Runway Added</div>
+                <div class="kpi-value" id="grant-runway-added">—</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Projected Net Assets (3yr)</div>
+                <div class="kpi-value" id="grant-3yr-assets">—</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Revenue Concentration Δ</div>
+                <div class="kpi-value" id="grant-concentration">—</div>
+              </div>
+            </div>
+
+            <div class="results-kpis" style="grid-template-columns:1fr">
+              <div class="kpi-card" style="text-align:left;display:flex;align-items:center;gap:16px">
+                <div style="font-size:2rem">💰</div>
+                <div>
+                  <div class="kpi-label">Net Annual Cash Flow Impact</div>
+                  <div class="kpi-value" id="grant-annual-impact">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-title">Before vs. After Grant — Key Metrics</div>
+              <div class="chart-container" style="height:280px">
+                <canvas id="chart-grant" aria-label="Grant impact comparison chart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-panels -->
+  </section>
+</div><!-- /view-dashboard -->
+
+<!-- ── Toast Notification ──────────────────────────────────────────────────── -->
+<div id="toast" class="toast" role="alert" aria-live="assertive"></div>
+
+<!-- ── Data Source Footer ──────────────────────────────────────────────────── -->
+<footer class="data-source-bar">
+  Data: <a href="https://projects.propublica.org/nonprofits/" target="_blank" rel="noopener">ProPublica Nonprofit Explorer API</a> · IRS Form 990 (7-year panel) ·
+  FundFlow Simulator — Aggie Hack 2026 &nbsp;|&nbsp; Financial projections are estimates for planning purposes only.
+</footer>
+
+<!-- ── App Module ──────────────────────────────────────────────────────────── -->
+<script type="module" src="app.js"></script>
+
+<script>
+  // Nav home click
+  document.getElementById('nav-home-btn').addEventListener('click', () => {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-search').classList.add('active');
+  });
+  document.getElementById('nav-home-btn').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('nav-home-btn').click();
+  });
+</script>
+
+</body>
+</html>
