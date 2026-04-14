@@ -19,8 +19,17 @@ const COLORS = {
 const CHART_DEFAULTS = {
   color: COLORS.text,
   borderColor: COLORS.gridLine,
+  interaction: {
+    mode: 'index',
+    intersect: false,
+  },
+  animation: {
+    duration: 750,
+    easing: 'easeOutQuart',
+  },
   plugins: {
     legend: {
+      position: 'top',
       labels: { color: COLORS.white, font: { family: 'Inter', size: 12 }, padding: 16 },
     },
     tooltip: {
@@ -39,6 +48,8 @@ function applyDefaults(config) {
   const options = config.options || {};
   options.responsive = true;
   options.maintainAspectRatio = false;
+  options.animation = { ...CHART_DEFAULTS.animation, ...(options.animation || {}) };
+  options.interaction = { ...CHART_DEFAULTS.interaction, ...(options.interaction || {}) };
   options.plugins = { ...CHART_DEFAULTS.plugins, ...(options.plugins || {}) };
   if (options.plugins.legend === undefined) options.plugins.legend = CHART_DEFAULTS.plugins.legend;
   config.options = options;

@@ -11,6 +11,7 @@ import { buildTrendChart, buildRevenueDonut, buildShockChart, buildGrantComparis
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
   searchResults: [],
+  filteredResults: [],
   selectedOrg: null,
   filings: [],
   latestFiling: null,
@@ -19,6 +20,12 @@ const state = {
   charts: {},
   shockResult: null,
   grantResult: null,
+  filters: {
+    category: 'all',
+    revenue: 'all',
+    employees: 'all',
+    geography: 'all',
+  },
 };
 
 // ── View Navigation ───────────────────────────────────────────────────────────
@@ -56,7 +63,8 @@ async function handleSearch(query) {
   try {
     const data = await searchOrganizations(query);
     state.searchResults = data.organizations || [];
-    renderSearchResults(state.searchResults);
+    initializeSearchFilters(state.searchResults);
+    applySearchFilters();
   } catch (err) {
     resultsEl.innerHTML = `<div class="error-state"><span class="error-icon">⚠️</span> ${err.message}</div>`;
   } finally {
@@ -65,16 +73,20 @@ async function handleSearch(query) {
   }
 }
 
-function renderSearchResults(orgs) {
+function renderSearchResults(orgs, total = orgs.length) {
   const el = document.getElementById('search-results');
   if (!orgs.length) {
-    el.innerHTML = `<div class="empty-state">No organizations found. Try a different name or EIN.</div>`;
+    el.innerHTML = `
+      <div id="search-filters" class="search-filters"></div>
+      <div class="empty-state">No organizations match this filter set. Try widening one or more filters.</div>`;
+    renderSearchFilters();
     return;
   }
 
   el.innerHTML = `
+    <div id="search-filters" class="search-filters"></div>
     <div class="results-header">
-      <span>${orgs.length} organizations found</span>
+      <span>Showing ${orgs.length} of ${total} organizations</span>
     </div>
     <div class="results-grid">
       ${orgs.slice(0, 20).map(org => `
@@ -88,12 +100,17 @@ function renderSearchResults(orgs) {
           </div>
           <div class="org-card-details">
             <span class="org-location">${[org.city, org.state].filter(Boolean).join(', ') || 'Location unknown'}</span>
-            ${org.ntee_code ? `<span class="org-category">${org.ntee_code}</span>` : ''}
+            <span class="org-category">${deriveCategory(org)}</span>
           </div>
           ${org.income_amount ? `<div class="org-revenue">Revenue: ${formatDollars(org.income_amount)}</div>` : ''}
+          <div class="org-meta-row">
+            <span>${labelRevenueRange(org)}</span>
+            <span>${labelEmployeeSize(org)}</span>
+          </div>
         </div>
       `).join('')}
     </div>`;
+  renderSearchFilters();
 
   // Attach click handlers
   el.querySelectorAll('.org-card').forEach(card => {
@@ -101,6 +118,143 @@ function renderSearchResults(orgs) {
     card.addEventListener('click', handler);
     card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') handler(); });
   });
+}
+
+function initializeSearchFilters(orgs) {
+  state.filters = { category: 'all', revenue: 'all', employees: 'all', geography: 'all' };
+  state.filterOptions = {
+    categories: ['all', ...new Set(orgs.map(deriveCategory).filter(Boolean))].sort(),
+    states: ['all', ...new Set(orgs.map(o => o.state).filter(Boolean))].sort(),
+  };
+}
+
+function renderSearchFilters() {
+  const el = document.getElementById('search-filters');
+  if (!el || !state.searchResults.length) return;
+  const categories = (state.filterOptions?.categories || ['all']).filter(Boolean);
+  const states = (state.filterOptions?.states || ['all']).filter(Boolean);
+  el.innerHTML = `
+    <div class="filters-header">
+      <h3>Filter organizations</h3>
+      <button id="clear-filters-btn" type="button">Clear filters</button>
+    </div>
+    <div class="filters-grid">
+      <div class="filter-field">
+        <label for="filter-category">Category</label>
+        <select id="filter-category">
+          ${categories.map(c => `<option value="${c}" ${state.filters.category === c ? 'selected' : ''}>${c === 'all' ? 'All categories' : c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="filter-revenue">Revenue Range</label>
+        <select id="filter-revenue">
+          <option value="all" ${state.filters.revenue === 'all' ? 'selected' : ''}>All revenue ranges</option>
+          <option value="500k-5m" ${state.filters.revenue === '500k-5m' ? 'selected' : ''}>$500K-$5M</option>
+          <option value="0-500k" ${state.filters.revenue === '0-500k' ? 'selected' : ''}>Below $500K</option>
+          <option value="5m-25m" ${state.filters.revenue === '5m-25m' ? 'selected' : ''}>$5M-$25M</option>
+          <option value="25m+" ${state.filters.revenue === '25m+' ? 'selected' : ''}>$25M+</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="filter-employees">Employee Size</label>
+        <select id="filter-employees">
+          <option value="all" ${state.filters.employees === 'all' ? 'selected' : ''}>All employee sizes</option>
+          <option value="1-10" ${state.filters.employees === '1-10' ? 'selected' : ''}>1-10</option>
+          <option value="11-50" ${state.filters.employees === '11-50' ? 'selected' : ''}>11-50</option>
+          <option value="51-200" ${state.filters.employees === '51-200' ? 'selected' : ''}>51-200</option>
+          <option value="200+" ${state.filters.employees === '200+' ? 'selected' : ''}>200+</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="filter-geography">Geography</label>
+        <select id="filter-geography">
+          ${states.map(s => `<option value="${s}" ${state.filters.geography === s ? 'selected' : ''}>${s === 'all' ? 'All states' : s}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+
+  el.querySelectorAll('select').forEach(select => {
+    select.addEventListener('change', () => {
+      state.filters = {
+        category: document.getElementById('filter-category')?.value || 'all',
+        revenue: document.getElementById('filter-revenue')?.value || 'all',
+        employees: document.getElementById('filter-employees')?.value || 'all',
+        geography: document.getElementById('filter-geography')?.value || 'all',
+      };
+      applySearchFilters();
+    });
+  });
+  const clearBtn = document.getElementById('clear-filters-btn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      state.filters = { category: 'all', revenue: 'all', employees: 'all', geography: 'all' };
+      applySearchFilters();
+    });
+  }
+}
+
+function applySearchFilters() {
+  const filtered = state.searchResults.filter(org => {
+    const categoryMatch = state.filters.category === 'all' || deriveCategory(org) === state.filters.category;
+    const revenueMatch = matchesRevenueRange(org.income_amount || 0, state.filters.revenue);
+    const employeeMatch = matchesEmployeeRange(estimateEmployeeCount(org), state.filters.employees);
+    const geoMatch = state.filters.geography === 'all' || org.state === state.filters.geography;
+    return categoryMatch && revenueMatch && employeeMatch && geoMatch;
+  });
+  state.filteredResults = filtered;
+  renderSearchResults(filtered, state.searchResults.length);
+}
+
+function deriveCategory(org) {
+  const major = (org.ntee_code || '').charAt(0).toUpperCase();
+  if (['K', 'L', 'P', 'S'].includes(major)) return 'Human Services';
+  if (['A', 'B'].includes(major)) return 'Education';
+  if (['E', 'F', 'G', 'H'].includes(major)) return 'Health';
+  if (['N', 'O'].includes(major)) return 'Youth Development';
+  return major ? 'Other' : 'Unclassified';
+}
+
+function estimateEmployeeCount(org) {
+  if (typeof org.noemployees === 'number' && org.noemployees > 0) return org.noemployees;
+  const revenue = org.income_amount || 0;
+  if (revenue <= 500_000) return 8;
+  if (revenue <= 2_000_000) return 30;
+  if (revenue <= 10_000_000) return 90;
+  return 250;
+}
+
+function matchesRevenueRange(revenue, range) {
+  if (range === 'all') return true;
+  if (range === '0-500k') return revenue < 500_000;
+  if (range === '500k-5m') return revenue >= 500_000 && revenue <= 5_000_000;
+  if (range === '5m-25m') return revenue > 5_000_000 && revenue <= 25_000_000;
+  if (range === '25m+') return revenue > 25_000_000;
+  return true;
+}
+
+function matchesEmployeeRange(count, range) {
+  if (range === 'all') return true;
+  if (range === '1-10') return count >= 1 && count <= 10;
+  if (range === '11-50') return count >= 11 && count <= 50;
+  if (range === '51-200') return count >= 51 && count <= 200;
+  if (range === '200+') return count > 200;
+  return true;
+}
+
+function labelRevenueRange(org) {
+  const rev = org.income_amount || 0;
+  if (rev < 500_000) return 'Revenue: < $500K';
+  if (rev <= 5_000_000) return 'Revenue: $500K-$5M';
+  if (rev <= 25_000_000) return 'Revenue: $5M-$25M';
+  return 'Revenue: $25M+';
+}
+
+function labelEmployeeSize(org) {
+  const n = estimateEmployeeCount(org);
+  if (n <= 10) return 'Employees: 1-10';
+  if (n <= 50) return 'Employees: 11-50';
+  if (n <= 200) return 'Employees: 51-200';
+  return 'Employees: 200+';
 }
 
 // ── Organization Dashboard ────────────────────────────────────────────────────
