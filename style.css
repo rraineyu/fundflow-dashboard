@@ -527,7 +527,6 @@ a { color: var(--teal); text-decoration: none; }
 
 /* ── LOADING VIEW ──────────────────────────────────────────────────────────── */
 #view-loading {
-  display: flex;
   align-items: center;
   justify-content: center;
   min-height: 60vh;
