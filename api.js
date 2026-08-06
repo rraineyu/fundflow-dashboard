@@ -7,9 +7,41 @@
  * verified against live responses from:
  *   GET /search.json?q=...
  *   GET /organizations/{ein}.json
+ *
+ * IMPORTANT: ProPublica's API does not send CORS headers, so a direct
+ * browser fetch() from a static site (e.g. GitHub Pages) is blocked by the
+ * browser even though the API itself is reachable and public (confirmed:
+ * a no-cors probe connects fine; a normal cors-mode fetch throws
+ * "Failed to fetch"). Since this project has no backend, requests are
+ * routed through a public CORS proxy, with a direct-fetch attempt first
+ * (in case ProPublica ever adds CORS support) and two proxy fallbacks for
+ * resilience against any single proxy being down.
  */
 
 const BASE = 'https://projects.propublica.org/nonprofits/api/v2';
+
+const CORS_PROXIES = [
+  url => url, // try direct first
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
+
+async function fetchJSON(url) {
+  let lastErr;
+  for (const wrap of CORS_PROXIES) {
+    try {
+      const res = await fetch(wrap(url));
+      if (!res.ok) {
+        lastErr = new Error(`HTTP ${res.status}`);
+        continue;
+      }
+      return await res.json();
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('Unknown fetch error');
+}
 
 /**
  * Search organizations by name/EIN.
@@ -17,16 +49,12 @@ const BASE = 'https://projects.propublica.org/nonprofits/api/v2';
  * @returns {Promise<{organizations: Array}>}
  */
 export async function searchOrganizations(query) {
-  let res;
+  let data;
   try {
-    res = await fetch(`${BASE}/search.json?q=${encodeURIComponent(query)}`);
+    data = await fetchJSON(`${BASE}/search.json?q=${encodeURIComponent(query)}`);
   } catch (err) {
     throw new Error('Could not reach the ProPublica Nonprofit Explorer API. Check your connection and try again.');
   }
-  if (!res.ok) {
-    throw new Error(`Search failed (HTTP ${res.status}). Please try again.`);
-  }
-  const data = await res.json();
   return { organizations: data.organizations || [], total: data.total_results || 0 };
 }
 
@@ -36,16 +64,12 @@ export async function searchOrganizations(query) {
  * @returns {Promise<{organization: object, filings_with_data: Array}>}
  */
 export async function getOrganization(ein) {
-  let res;
+  let data;
   try {
-    res = await fetch(`${BASE}/organizations/${ein}.json`);
+    data = await fetchJSON(`${BASE}/organizations/${ein}.json`);
   } catch (err) {
     throw new Error('Could not reach the ProPublica Nonprofit Explorer API. Check your connection and try again.');
   }
-  if (!res.ok) {
-    throw new Error(`Could not load this organization (HTTP ${res.status}).`);
-  }
-  const data = await res.json();
   return {
     organization: data.organization,
     filings_with_data: data.filings_with_data || [],
