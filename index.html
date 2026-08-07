@@ -183,6 +183,36 @@
     </div>
   </section>
 
+  <!-- ── Solvency Outlook (Monte Carlo) ──────────────────────────────────────── -->
+  <section class="resilience-section" aria-labelledby="solvency-heading">
+    <div class="section-title" id="solvency-heading">
+      3-Year Solvency Outlook
+      <span style="font-weight:400;font-size:0.72rem;color:var(--text-muted);text-transform:none;letter-spacing:normal">
+        Monte Carlo &middot; <span id="mc-sim-count">5,000</span> simulated futures, calibrated to this org's own revenue &amp; expense volatility
+      </span>
+    </div>
+    <div class="key-stats-row" role="region" aria-label="Solvency probabilities">
+      <div class="key-stat">
+        <div class="stat-label">12-Month Solvency Probability</div>
+        <div class="stat-value" id="solvency-12mo">—</div>
+      </div>
+      <div class="key-stat">
+        <div class="stat-label">24-Month Solvency Probability</div>
+        <div class="stat-value" id="solvency-24mo">—</div>
+      </div>
+      <div class="key-stat">
+        <div class="stat-label">36-Month Solvency Probability</div>
+        <div class="stat-value" id="solvency-36mo">—</div>
+      </div>
+    </div>
+    <div class="chart-card" style="margin-top:16px">
+      <div class="chart-title">Simulated Net Asset Range</div>
+      <div class="chart-container" style="height:280px">
+        <canvas id="chart-montecarlo" aria-label="Monte Carlo simulated net asset range over 3 years"></canvas>
+      </div>
+    </div>
+  </section>
+
   <!-- Tabs: Overview / Shock Simulator / Grant Impact -->
   <section class="tabs-section">
     <nav class="tab-nav" role="tablist" aria-label="Analysis tabs">

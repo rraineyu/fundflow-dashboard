@@ -6,7 +6,8 @@
 import { searchOrganizations, getOrganization, normalizeFilings, getRevenueBreakdown } from './api.js';
 import { computeMetrics, resilienceScore, scoreLabel, metricStatus, formatMetricValue } from './metrics.js';
 import { runShockSimulation, runGrantSimulation, SHOCK_TYPES, GRANT_TYPES, formatDollars } from './simulator.js';
-import { buildTrendChart, buildRevenueDonut, buildShockChart, buildGrantComparisonChart } from './charts.js';
+import { buildTrendChart, buildRevenueDonut, buildShockChart, buildGrantComparisonChart, buildSolvencyFanChart } from './charts.js';
+import { calibrateVolatility, runMonteCarlo } from './montecarlo.js';
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
@@ -324,6 +325,35 @@ function renderDashboard() {
 
   // Charts
   renderDashboardCharts();
+
+  // Monte Carlo solvency outlook
+  renderSolvencyOutlook();
+}
+
+// ── Solvency Outlook (Monte Carlo) ────────────────────────────────────────────
+function renderSolvencyOutlook() {
+  if (!state.filings.length || !state.latestFiling) return;
+
+  const volatility = calibrateVolatility(state.filings);
+  const mc = runMonteCarlo(state.latestFiling, volatility, { numSimulations: 5000 });
+  state.monteCarlo = mc;
+
+  const setProb = (id, prob) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = `${prob}%`;
+    el.className = 'stat-value ' + (prob >= 70 ? 'positive' : prob >= 40 ? 'warning' : 'negative');
+  };
+  setProb('solvency-12mo', mc.solvencyProb[12]);
+  setProb('solvency-24mo', mc.solvencyProb[24]);
+  setProb('solvency-36mo', mc.solvencyProb[36]);
+
+  const countEl = document.getElementById('mc-sim-count');
+  if (countEl) countEl.textContent = mc.numSimulations.toLocaleString();
+
+  if (state.charts.montecarlo) state.charts.montecarlo.destroy();
+  const mcCtx = document.getElementById('chart-montecarlo');
+  if (mcCtx) state.charts.montecarlo = buildSolvencyFanChart(mcCtx, mc);
 }
 
 function animateScore(targetScore, sl) {

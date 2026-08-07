@@ -665,6 +665,7 @@ a { color: var(--teal); text-decoration: none; }
 
 .stat-value.positive { color: var(--teal); }
 .stat-value.negative { color: var(--red); }
+.stat-value.warning { color: var(--gold); }
 
 /* ── Resilience Score Panel ─────────────────────────────────────────────────── */
 .resilience-section {

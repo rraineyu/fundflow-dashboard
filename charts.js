@@ -302,6 +302,71 @@ export function buildGrantComparisonChart(ctx, baseMetrics, boostedMetrics) {
   }));
 }
 
+/**
+ * Monte Carlo solvency fan chart — p10/p50/p90 net asset bands over 3 years.
+ */
+export function buildSolvencyFanChart(ctx, mc) {
+  const labels = ['Today', 'Year 1', 'Year 2', 'Year 3'];
+
+  return new Chart(ctx, applyDefaults({
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '10th percentile (downside)',
+          data: mc.bands.p10,
+          borderColor: 'rgba(255,107,107,0.5)',
+          backgroundColor: 'transparent',
+          borderWidth: 1,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          fill: false,
+          tension: 0.3,
+        },
+        {
+          label: '90th percentile (upside)',
+          data: mc.bands.p90,
+          borderColor: 'rgba(0,191,165,0.5)',
+          backgroundColor: 'rgba(245,166,35,0.08)',
+          borderWidth: 1,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          fill: '-1',
+          tension: 0.3,
+        },
+        {
+          label: 'Median simulated path',
+          data: mc.bands.p50,
+          borderColor: COLORS.gold,
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointBackgroundColor: COLORS.gold,
+          fill: false,
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      scales: {
+        x: {
+          grid: { color: COLORS.gridLine },
+          ticks: { color: COLORS.text, font: { family: 'Inter', size: 11 } },
+        },
+        y: {
+          grid: { color: COLORS.gridLine },
+          ticks: {
+            color: COLORS.text,
+            font: { family: 'Inter', size: 11 },
+            callback: v => formatAxisDollars(v),
+          },
+        },
+      },
+    },
+  }));
+}
+
 function formatAxisDollars(v) {
   const abs = Math.abs(v);
   const sign = v < 0 ? '-' : '';
