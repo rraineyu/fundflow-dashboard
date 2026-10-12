@@ -20,8 +20,8 @@
 
 const BASE = 'https://projects.propublica.org/nonprofits/api/v2';
 
-// Your own Cloudflare Worker relay (see worker.js). Replace with your workers.dev URL.
-const RELAY = 'https://YOUR-WORKER.workers.dev';
+// Own Cloudflare Worker relay (source: relay/worker.js).
+const RELAY = 'https://fundflow-proxy.rraineyyu.workers.dev';
 
 const CORS_PROXIES = [
   url => url.replace('https://projects.propublica.org', RELAY), // own relay first
