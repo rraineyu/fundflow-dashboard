@@ -20,8 +20,12 @@
 
 const BASE = 'https://projects.propublica.org/nonprofits/api/v2';
 
+// Your own Cloudflare Worker relay (see worker.js). Replace with your workers.dev URL.
+const RELAY = 'https://YOUR-WORKER.workers.dev';
+
 const CORS_PROXIES = [
-  url => url, // try direct first
+  url => url.replace('https://projects.propublica.org', RELAY), // own relay first
+  url => url, // direct (works only if ProPublica adds CORS)
   url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
 ];
