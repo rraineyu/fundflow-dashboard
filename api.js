@@ -77,6 +77,7 @@ export async function getOrganization(ein) {
   return {
     organization: data.organization,
     filings_with_data: data.filings_with_data || [],
+    filings_without_data: data.filings_without_data || [],
   };
 }
 
@@ -93,19 +94,28 @@ export async function getOrganization(ein) {
 export function normalizeFilings(filingsWithData) {
   return (filingsWithData || [])
     .filter(f => f && typeof f.totrevenue === 'number' && typeof f.totfuncexpns === 'number')
-    .map(f => ({
-      year: f.tax_prd_yr,
-      totalRevenue: f.totrevenue || 0,
-      totalExpenses: f.totfuncexpns || 0,
-      totalAssets: f.totassetsend || 0,
-      totalLiabilities: f.totliabend || 0,
-      netAssets: f.totnetassetend || 0,
-      contributions: f.totcntrbgfts || 0,
-      programRevenue: f.totprgmrevnue || 0,
-      investmentIncome: f.invstmntinc || 0,
-      govtGrants: f.totcntrbgfts || 0,
-      programExpenses: 0,
-    }))
+    .map(f => {
+      // Field names differ by form: full 990, 990-EZ, and 990-PF (foundations).
+      const pick = (...vals) => vals.find(v => typeof v === 'number') ?? 0;
+      const totalAssets = pick(f.totassetsend);
+      const totalLiabilities = pick(f.totliabend);
+      const contributions = pick(f.totcntrbgfts, f.totcntrbs, f.grscontrgifts);
+      return {
+        year: f.tax_prd_yr,
+        totalRevenue: f.totrevenue || 0,
+        totalExpenses: f.totfuncexpns || 0,
+        totalAssets,
+        totalLiabilities,
+        netAssets: pick(f.totnetassetend, f.totnetassetsend, f.tfundnworth, totalAssets - totalLiabilities),
+        contributions,
+        programRevenue: pick(f.totprgmrevnue, f.prgmservrev),
+        investmentIncome: pick(f.invstmntinc, f.othrinvstinc,
+          (typeof f.intrstrvnue === 'number' || typeof f.dividndsamt === 'number')
+            ? (f.intrstrvnue || 0) + (f.dividndsamt || 0) : undefined),
+        govtGrants: contributions,
+        programExpenses: 0,
+      };
+    })
     .sort((a, b) => a.year - b.year);
 }
 

@@ -278,7 +278,11 @@ async function loadOrganization(ein) {
     state.filings = normalizeFilings(data.filings_with_data || []);
 
     if (!state.filings.length) {
-      throw new Error('No financial data available for this organization.');
+      const name = data.organization?.name || 'This organization';
+      const reason = (data.filings_without_data || []).length
+        ? 'its IRS filings are only available as scanned documents, so there are no financial figures to analyze'
+        : 'it only files the IRS 990-N postcard (for nonprofits under about $50K a year), which has no financial details';
+      throw new Error(`No financial data for ${name}: ${reason}. Try a larger organization.`);
     }
 
     state.latestFiling = state.filings[state.filings.length - 1];
@@ -649,7 +653,7 @@ function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
   toast.textContent = message;
   toast.className = `toast toast-${type} toast-show`;
-  setTimeout(() => { toast.className = 'toast'; }, 4000);
+  setTimeout(() => { toast.className = 'toast'; }, type === 'error' ? 7000 : 4000);
 }
 
 // ── Initialize ────────────────────────────────────────────────────────────────
