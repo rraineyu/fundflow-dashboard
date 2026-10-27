@@ -1,5 +1,5 @@
 # 🚀 FundFlow NextGen Dashboard
-**A Machine Learning-Powered Nonprofit Financial Risk Simulator for Aggie Hacks 2026**
+**A Machine Learning-Powered Nonprofit Financial Risk Simulator**
 
 FundFlow is a high-performance React dashboard designed to analyze and predict the financial resilience of over 11,500 nonprofit organizations. By ingesting tax return data (IRS Form 990) and applying advanced Machine Learning models, FundFlow instantly highlights systemic vulnerabilities and visualizes institutional health metrics to help stakeholders make data-driven funding decisions.
 
